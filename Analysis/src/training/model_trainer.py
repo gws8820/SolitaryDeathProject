@@ -10,16 +10,14 @@ from datetime import datetime
 
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
-from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
 
 warnings.filterwarnings('ignore')
 
 class ModelTrainer:
     """고독사 감지를 위한 비지도 학습 모델 훈련 클래스"""
     
-    def __init__(self, processed_data_path: str = "data/processed", models_path: str = "models"):
+    def __init__(self, processed_data_path: str = "dummy_data/processed", models_path: str = "dummy_models"):
         self.processed_data_path = Path(processed_data_path)
         self.models_path = Path(models_path)
         
@@ -53,10 +51,6 @@ class ModelTrainer:
                 nu=0.1,
                 kernel='rbf',
                 gamma='scale'
-            ),
-            'dbscan': DBSCAN(
-                eps=0.5,
-                min_samples=5
             )
         }
         
@@ -153,47 +147,20 @@ class ModelTrainer:
             print(f"\n{model_name.upper()} 훈련 중...")
             
             try:
-                if model_name == 'dbscan':
-                    # DBSCAN은 fit_predict 사용
-                    labels = model.fit_predict(X_train)
-                    
-                    # 클러스터 통계
-                    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-                    n_noise = list(labels).count(-1)
-                    
-                    model_stats[model_name] = {
-                        'n_clusters': n_clusters,
-                        'n_noise_points': n_noise,
-                        'noise_ratio': n_noise / len(labels)
-                    }
-                    
-                    # 실루엣 스코어 계산 (노이즈 포인트 제외)
-                    if n_clusters > 1 and n_noise < len(labels):
-                        mask = labels != -1
-                        if np.sum(mask) > 1:
-                            try:
-                                silhouette_avg = silhouette_score(X_train[mask], labels[mask])
-                                model_stats[model_name]['silhouette_score'] = silhouette_avg
-                            except:
-                                model_stats[model_name]['silhouette_score'] = None
-                    
-                    print(f"클러스터 수: {n_clusters}, 노이즈 포인트: {n_noise}")
-                    
-                else:
-                    # Isolation Forest, One-Class SVM
-                    model.fit(X_train)
-                    
-                    # 이상치 예측
-                    predictions = model.predict(X_train)
-                    anomaly_ratio = np.sum(predictions == -1) / len(predictions)
-                    
-                    model_stats[model_name] = {
-                        'anomaly_ratio': anomaly_ratio,
-                        'n_anomalies': np.sum(predictions == -1),
-                        'n_normal': np.sum(predictions == 1)
-                    }
-                    
-                    print(f"이상치 비율: {anomaly_ratio:.3f}")
+                # Isolation Forest, One-Class SVM
+                model.fit(X_train)
+                
+                # 이상치 예측
+                predictions = model.predict(X_train)
+                anomaly_ratio = np.sum(predictions == -1) / len(predictions)
+                
+                model_stats[model_name] = {
+                    'anomaly_ratio': anomaly_ratio,
+                    'n_anomalies': np.sum(predictions == -1),
+                    'n_normal': np.sum(predictions == 1)
+                }
+                
+                print(f"이상치 비율: {anomaly_ratio:.3f}")
                 
                 trained_models[model_name] = model
                 print(f"{model_name.upper()} 훈련 완료")
@@ -241,13 +208,18 @@ class ModelTrainer:
         # Night 모델 훈련  
         night_models = self.train_models('night')
         
-        # 훈련 통계 저장
-        stats_file = self.models_path / "training_stats.pkl"
-        with open(stats_file, 'wb') as f:
-            pickle.dump(self.training_stats, f)
+        # 훈련 통계를 각 폴더에 저장
+        day_stats_file = self.day_models_path / "training_stats.pkl"
+        night_stats_file = self.night_models_path / "training_stats.pkl"
+        
+        with open(day_stats_file, 'wb') as f:
+            pickle.dump(self.training_stats['day'], f)
+        with open(night_stats_file, 'wb') as f:
+            pickle.dump(self.training_stats['night'], f)
         
         print(f"\n=== 모든 모델 훈련 완료 ===")
-        print(f"통계 파일 저장: {stats_file}")
+        print(f"Day 통계 파일 저장: {day_stats_file}")
+        print(f"Night 통계 파일 저장: {night_stats_file}")
         
         return {
             'day': day_models,

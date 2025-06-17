@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 class ModelAnalyzer:
     """훈련된 모델들의 차원 특성 분석 클래스"""
     
-    def __init__(self, models_path: str = "models", charts_path: str = "charts"):
+    def __init__(self, models_path: str = "dummy_models", charts_path: str = "charts"):
         self.models_path = Path(models_path)
         self.charts_path = Path(charts_path)
         self.charts_path.mkdir(exist_ok=True)
@@ -27,9 +27,18 @@ class ModelAnalyzer:
         
     def load_training_stats(self):
         """훈련 통계 로드"""
-        stats_file = self.models_path / "training_stats.pkl"
-        with open(stats_file, 'rb') as f:
-            self.training_stats = pickle.load(f)
+        day_stats_file = self.models_path / "day" / "training_stats.pkl"
+        night_stats_file = self.models_path / "night" / "training_stats.pkl"
+        
+        with open(day_stats_file, 'rb') as f:
+            day_stats = pickle.load(f)
+        with open(night_stats_file, 'rb') as f:
+            night_stats = pickle.load(f)
+            
+        self.training_stats = {
+            'day': day_stats,
+            'night': night_stats
+        }
         print("훈련 통계 로드 완료")
     
     def load_models(self):
@@ -186,8 +195,7 @@ class ModelAnalyzer:
         """알고리즘 유형 반환"""
         types = {
             'isolation_forest': 'Tree-based Ensemble',
-            'one_class_svm': 'Kernel-based',
-            'dbscan': 'Density-based Clustering'
+            'one_class_svm': 'Kernel-based'
         }
         return types.get(model_name, 'Unknown')
     
@@ -195,8 +203,7 @@ class ModelAnalyzer:
         """차원 처리 능력 반환"""
         handling = {
             'isolation_forest': 'Good - Tree structure naturally handles high dimensions',
-            'one_class_svm': 'Moderate - Kernel trick helps but can struggle with very high dimensions',
-            'dbscan': 'Poor - Distance-based, severely affected by curse of dimensionality'
+            'one_class_svm': 'Moderate - Kernel trick helps but can struggle with very high dimensions'
         }
         return handling.get(model_name, 'Unknown')
     
@@ -214,12 +221,6 @@ class ModelAnalyzer:
                 'Flexible kernel functions',
                 'Good generalization',
                 'Robust to outliers in training data'
-            ],
-            'dbscan': [
-                'No need to specify number of clusters',
-                'Can find arbitrarily shaped clusters',
-                'Robust to noise',
-                'Good for density-based anomaly detection'
             ]
         }
         return strengths.get(model_name, [])
@@ -236,12 +237,6 @@ class ModelAnalyzer:
                 'Computationally expensive for large datasets',
                 'Sensitive to parameter tuning',
                 'Memory intensive'
-            ],
-            'dbscan': [
-                'Sensitive to hyperparameters (eps, min_samples)',
-                'Struggles with varying densities',
-                'Poor performance in high dimensions',
-                'Difficulty with clusters of different sizes'
             ]
         }
         return weaknesses.get(model_name, [])
@@ -326,12 +321,6 @@ def main():
     for time_of_day in ['day', 'night']:
         analyzer.create_visualization(time_of_day)
     
-    # 분석 결과 저장
-    analysis_file = Path("models") / "dimensional_analysis.pkl"
-    with open(analysis_file, 'wb') as f:
-        pickle.dump(analysis, f)
-    
-    print(f"차원 분석 결과 저장: {analysis_file}")
     print("모델 차원 특성 분석이 완료되었습니다!")
     
     return analysis

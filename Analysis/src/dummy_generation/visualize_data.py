@@ -20,7 +20,7 @@ class DataVisualizer:
         
     def load_dataset(self, filename):
         """데이터셋을 로드합니다."""
-        filepath = f'../../data/raw/{filename}'
+        filepath = f'../../dummy_data/raw/{filename}'
         return pd.read_csv(filepath)
     
     def calculate_hourly_toggle_and_ontime(self, df):

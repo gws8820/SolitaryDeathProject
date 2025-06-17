@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 class AbnormalHourExtractor:
-    def __init__(self, raw_data_path="data/raw", output_path="data/abnormal_hour"):
+    def __init__(self, raw_data_path="dummy_data/raw", output_path="dummy_data/abnormal_hour"):
         self.raw_data_path = raw_data_path
         self.output_path = output_path
         

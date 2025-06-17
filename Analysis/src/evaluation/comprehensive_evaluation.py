@@ -5,7 +5,6 @@ import os
 from datetime import datetime, timedelta
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
-from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 import warnings
 import pickle
@@ -25,29 +24,29 @@ class ComprehensiveEvaluator:
         
         # 훈련 통계에서 특징 순서 로드
         try:
-            with open('models/training_stats.pkl', 'rb') as f:
-                training_stats = pickle.load(f)
-            self.feature_orders['day'] = training_stats['day']['feature_names']
-            self.feature_orders['night'] = training_stats['night']['feature_names']
+            with open('dummy_models/day/training_stats.pkl', 'rb') as f:
+                day_stats = pickle.load(f)
+            with open('dummy_models/night/training_stats.pkl', 'rb') as f:
+                night_stats = pickle.load(f)
+            self.feature_orders['day'] = day_stats['feature_names']
+            self.feature_orders['night'] = night_stats['feature_names']
         except:
             print("훈련 통계 파일을 로드할 수 없습니다.")
             return
         
         # Day 모델들 로드
-        day_path = "models/day"
+        day_path = "dummy_models/day"
         self.models['day'] = {
             'isolation_forest': joblib.load(f"{day_path}/isolation_forest.pkl"),
-            'one_class_svm': joblib.load(f"{day_path}/one_class_svm.pkl"),
-            'dbscan': joblib.load(f"{day_path}/dbscan.pkl")
+            'one_class_svm': joblib.load(f"{day_path}/one_class_svm.pkl")
         }
         self.scalers['day'] = joblib.load(f"{day_path}/scaler.pkl")
         
         # Night 모델들 로드
-        night_path = "models/night"
+        night_path = "dummy_models/night"
         self.models['night'] = {
             'isolation_forest': joblib.load(f"{night_path}/isolation_forest.pkl"),
-            'one_class_svm': joblib.load(f"{night_path}/one_class_svm.pkl"),
-            'dbscan': joblib.load(f"{night_path}/dbscan.pkl")
+            'one_class_svm': joblib.load(f"{night_path}/one_class_svm.pkl")
         }
         self.scalers['night'] = joblib.load(f"{night_path}/scaler.pkl")
         
@@ -72,7 +71,7 @@ class ComprehensiveEvaluator:
     
     def load_test_data(self, dataset_type):
         """테스트 데이터 로드 - 훈련 시 특징명과 일치하도록 수정"""
-        base_path = f"data/processed/{dataset_type}_test_dataset"
+        base_path = f"dummy_data/processed/{dataset_type}_test_dataset"
         
         # Day 데이터
         day_features = None
@@ -139,13 +138,13 @@ class ComprehensiveEvaluator:
     
     def load_abnormal_hours(self, dataset_type):
         """이상 발생 시점 데이터 로드"""
-        file_path = f"data/abnormal_hour/{dataset_type}_test_dataset.csv"
+        file_path = f"dummy_data/abnormal_hour/{dataset_type}_test_dataset.csv"
         return pd.read_csv(file_path)
     
     def predict_anomaly(self, data, period):
         """이상치 예측 - 올바른 임계값 적용"""
         if len(data) == 0:
-            return {'isolation_forest': False, 'one_class_svm': False, 'dbscan': False}
+            return {'isolation_forest': False, 'one_class_svm': False}
         
         # 훈련 시 특징 순서로 데이터 재정렬
         ordered_data = self.reorder_features(data, period)
@@ -163,10 +162,6 @@ class ComprehensiveEvaluator:
         svm_pred = self.models[period]['one_class_svm'].predict(data_scaled)
         predictions['one_class_svm'] = -1 in svm_pred
         
-        # DBSCAN - 단일 포인트 특성상 의미있는 판정 불가, 항상 False
-        # (단일 데이터 포인트는 항상 노이즈로 분류되므로 실제 이상치 감지에 부적합)
-        predictions['dbscan'] = False
-        
         return predictions
     
     def check_traditional_method(self, day_features, night_features, user_id, abnormal_hour):
@@ -177,7 +172,7 @@ class ComprehensiveEvaluator:
         if len(user_day_data) == 0 or len(user_night_data) == 0:
             return False
         
-        # 더 정확한 기존 방법 구현
+        # 더정확한 기존 방법 구현
         # 이상 발생 후부터 검사 시작
         total_checks = 0
         inactive_checks = 0
@@ -244,8 +239,7 @@ class ComprehensiveEvaluator:
         results = {
             'traditional': {'detected': 0, 'detection_times': []},
             'isolation_forest': {'detected': 0, 'detection_times': []},
-            'one_class_svm': {'detected': 0, 'detection_times': []},
-            'dbscan': {'detected': 0, 'detection_times': []}
+            'one_class_svm': {'detected': 0, 'detection_times': []}
         }
         
         total_users = len(abnormal_hours)
@@ -289,8 +283,7 @@ class ComprehensiveEvaluator:
         detection_times = {
             'traditional': None,
             'isolation_forest': None,
-            'one_class_svm': None,
-            'dbscan': None
+            'one_class_svm': None
         }
         
         # 기존 방법 체크 (24시간 후)
@@ -362,8 +355,7 @@ class ComprehensiveEvaluator:
         report.append("본 보고서는 고독사 감지를 위한 4가지 방법의 성능을 비교 분석한 결과입니다:\n")
         report.append("1. **기존 방법**: 24시간 LED 미변동 시 고독사로 판단")
         report.append("2. **Isolation Forest**: 고립 숲 기반 이상치 감지")
-        report.append("3. **One-Class SVM**: 일클래스 서포트 벡터 머신")
-        report.append("4. **DBSCAN**: 밀도 기반 클러스터링으로 이상치 감지\n")
+        report.append("3. **One-Class SVM**: 일클래스 서포트 벡터 머신\n")
         
         # 데이터셋별 결과
         for dataset_type, data in all_results.items():
@@ -388,8 +380,7 @@ class ComprehensiveEvaluator:
                 method_name = {
                     'traditional': '기존 방법 (24시간)',
                     'isolation_forest': 'Isolation Forest',
-                    'one_class_svm': 'One-Class SVM',
-                    'dbscan': 'DBSCAN'
+                    'one_class_svm': 'One-Class SVM'
                 }[method]
                 
                 report.append(f"| {method_name} | {perf['detection_rate_72h']:.1f} | {perf['detected_count']} / {perf['total_count']} |")
@@ -403,8 +394,7 @@ class ComprehensiveEvaluator:
                 method_name = {
                     'traditional': '기존 방법 (24시간)',
                     'isolation_forest': 'Isolation Forest',
-                    'one_class_svm': 'One-Class SVM',
-                    'dbscan': 'DBSCAN'
+                    'one_class_svm': 'One-Class SVM'
                 }[method]
                 
                 avg_time = perf['average_detection_time']
@@ -418,8 +408,7 @@ class ComprehensiveEvaluator:
                     method_name = {
                         'traditional': '기존 방법',
                         'isolation_forest': 'Isolation Forest',
-                        'one_class_svm': 'One-Class SVM',
-                        'dbscan': 'DBSCAN'
+                        'one_class_svm': 'One-Class SVM'
                     }[method]
                     
                     report.append(f"**{method_name}**:")
@@ -443,7 +432,7 @@ class ComprehensiveEvaluator:
         report.append("## 전체 요약\n")
         
         # 모든 데이터셋 평균 계산
-        all_methods = ['traditional', 'isolation_forest', 'one_class_svm', 'dbscan']
+        all_methods = ['traditional', 'isolation_forest', 'one_class_svm']
         summary_results = {}
         
         for method in all_methods:
@@ -472,8 +461,7 @@ class ComprehensiveEvaluator:
             method_name = {
                 'traditional': '기존 방법 (24시간)',
                 'isolation_forest': 'Isolation Forest',
-                'one_class_svm': 'One-Class SVM',
-                'dbscan': 'DBSCAN'
+                'one_class_svm': 'One-Class SVM'
             }[method]
             
             detection_rate = summary_results[method]['overall_detection_rate']
@@ -494,8 +482,7 @@ class ComprehensiveEvaluator:
         best_method_name = {
             'traditional': '기존 방법',
             'isolation_forest': 'Isolation Forest',
-            'one_class_svm': 'One-Class SVM',
-            'dbscan': 'DBSCAN'
+            'one_class_svm': 'One-Class SVM'
         }[best_method]
         
         report.append(f"### 주요 발견사항\n")
@@ -505,7 +492,7 @@ class ComprehensiveEvaluator:
         
         # 기존 방법 대비 개선점
         traditional_rate = summary_results['traditional']['overall_detection_rate']
-        ml_methods = ['isolation_forest', 'one_class_svm', 'dbscan']
+        ml_methods = ['isolation_forest', 'one_class_svm']
         
         for method in ml_methods:
             ml_rate = summary_results[method]['overall_detection_rate']
@@ -513,8 +500,7 @@ class ComprehensiveEvaluator:
                 improvement = ml_rate - traditional_rate
                 method_name = {
                     'isolation_forest': 'Isolation Forest',
-                    'one_class_svm': 'One-Class SVM',
-                    'dbscan': 'DBSCAN'
+                    'one_class_svm': 'One-Class SVM'
                 }[method]
                 report.append(f"2. **{method_name}**: 기존 방법 대비 {improvement:.1f}%p 향상")
         
@@ -546,7 +532,7 @@ class ComprehensiveEvaluator:
                 performance_by_time[dataset_type][f'{time_window}h'] = {}
                 
                 # 각 모델별 성능 계산
-                models = ['traditional', 'isolation_forest', 'one_class_svm', 'dbscan']
+                models = ['traditional', 'isolation_forest', 'one_class_svm']
                 
                 for model in models:
                     detected_within_time = 0
@@ -591,7 +577,7 @@ class ComprehensiveEvaluator:
         for idx, (dataset, title) in enumerate(zip(datasets, dataset_titles)):
             # 히트맵 데이터 준비
             time_windows = ['3h', '6h', '12h', '24h']
-            models = ['traditional', 'isolation_forest', 'one_class_svm']  # dbscan 제외
+            models = ['traditional', 'isolation_forest', 'one_class_svm']
             
             heatmap_data = []
             for time_window in time_windows:
@@ -615,7 +601,7 @@ class ComprehensiveEvaluator:
             axes[idx].set_ylabel('Time Window')
         
         plt.tight_layout()
-        plt.savefig('charts/anomaly_detection/time_based_detection_heatmap.png', 
+        plt.savefig('charts/detection_performance/time_based_detection_heatmap.png', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -648,7 +634,7 @@ class ComprehensiveEvaluator:
             axes[idx].set_xticks(time_hours)
         
         plt.tight_layout()
-        plt.savefig('charts/anomaly_detection/time_based_detection_lines.png', 
+        plt.savefig('charts/detection_performance/time_based_detection_lines.png', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -685,7 +671,7 @@ class ComprehensiveEvaluator:
         ax.set_ylim(0, 105)
         
         plt.tight_layout()
-        plt.savefig('charts/anomaly_detection/time_based_comparison_bars.png', 
+        plt.savefig('charts/detection_performance/time_based_comparison_bars.png', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -752,11 +738,10 @@ class ComprehensiveEvaluator:
             
             # 1. 요약
             f.write("## 1. 요약\n\n")
-            f.write("본 보고서는 고독사 감지를 위한 4가지 접근법의 성능을 종합적으로 분석합니다:\n")
+            f.write("본 보고서는 고독사 감지를 위한 3가지 접근법의 성능을 종합적으로 분석합니다:\n")
             f.write("1. 기존 방법 (24시간 LED 미변동 감지)\n")
             f.write("2. Isolation Forest\n")
-            f.write("3. One-Class SVM\n")
-            f.write("4. DBSCAN (구조적 한계로 인해 비활성화)\n\n")
+            f.write("3. One-Class SVM\n\n")
             
             # 2. 전체 성능 분석
             total_cases = len(all_results)

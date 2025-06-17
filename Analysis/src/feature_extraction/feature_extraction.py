@@ -5,7 +5,7 @@ import os
 import glob
 
 class FeatureExtractor:
-    def __init__(self, raw_data_path="data/raw", processed_data_path="data/processed"):
+    def __init__(self, raw_data_path="dummy_data/raw", processed_data_path="dummy_data/processed"):
         self.raw_data_path = raw_data_path
         self.processed_data_path = processed_data_path
         

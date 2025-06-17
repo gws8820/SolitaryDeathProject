@@ -6,7 +6,7 @@
 
 ### 목표
 - 기존 시스템(LED 12시간 연속 켜짐 → 고독사 판단)의 감지 시간 단축 및 정확도 향상
-- 비지도 학습 머신러닝 방법 3개(Isolation Forest, One-Class SVM, DBSCAN) 활용
+- 비지도 학습 머신러닝 방법 2개(Isolation Forest, One-Class SVM) 활용
 - 현실적인 더미 데이터를 통한 알고리즘 개발 및 검증
 
 ### 시스템 구성
@@ -104,7 +104,7 @@ python visualize_dummy_data.py  # 시각화만
 ## 다음 단계
 
 1. **데이터 전처리**: 특성 엔지니어링, 정규화
-2. **모델 개발**: Isolation Forest, One-Class SVM, DBSCAN 구현
+2. **모델 개발**: Isolation Forest, One-Class SVM 구현
 3. **성능 평가**: 감지 시간, 정확도, 재현율 분석
 4. **모델 최적화**: 하이퍼파라미터 튜닝, 앙상블 기법
 
