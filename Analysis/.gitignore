@@ -1,6 +1,6 @@
 .env
 .DS_Store
 
-.cursor/
-__pycache__/
-venv/
+.cursor
+__pycache__
+venv
