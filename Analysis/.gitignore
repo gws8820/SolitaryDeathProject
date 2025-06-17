@@ -2,5 +2,4 @@
 .DS_Store
 
 .cursor
-__pycache__
 venv
