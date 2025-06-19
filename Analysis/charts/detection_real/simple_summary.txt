@@ -1,0 +1,24 @@
+=== Solitary Death Detection System Summary ===
+
+Overall Status
+- Total Records: 738
+- Detected Records: 91 (12.3%)
+- Total Users: 112
+- Detected Users: 28 (25.0%)
+
+Model Performance
+- OCSVM: 67 detections
+- Isolation Forest: 146 detections
+- Consensus: 91 detections
+
+Top Detected Users
+- User 0040028: 10 detections
+- User 0040029: 8 detections
+- User 0040031: 7 detections
+- User 0040013: 6 detections
+- User 0080007: 5 detections
+- User 0070014: 5 detections
+- User 0040055: 4 detections
+- User 0080003: 4 detections
+- User 0030002: 4 detections
+- User 0040053: 4 detections
