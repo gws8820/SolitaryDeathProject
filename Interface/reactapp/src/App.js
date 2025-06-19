@@ -1,18 +1,7 @@
-// App.js
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { PieChart, Pie, Cell, Label } from 'recharts';
 import { useNavigate } from 'react-router-dom';
-
-const DUMMY_USERS = [
-  { id: '0040071', status: '심각(80점 이상)' },
-  { id: '0040011', status: '주의(65~80점)' },
-  { id: '0040041', status: '관심(50~65점)' },
-  { id: '0040020', status: '정상(0~50점)' },
-  { id: '00300018', status: '심각(80점 이상)' },
-  { id: '0050030', status: '심각(80점 이상)' },
-  { id: '0010004', status: '심각(80점 이상)' }
-];
 
 const COLORS = ['#005bff', '#5c7cfa', '#fab005', '#fa5252'];
 
@@ -26,13 +15,24 @@ function App() {
     fetch('/abnormal_detection.json')
       .then(res => res.json())
       .then(data => {
-        const mapped = data.map((item, index) => {
+        const latestMap = new Map();
+
+        data.forEach(item => {
+          const key = item.User;
+          const timestamp = new Date(`${item.Date}T${item.Type === 'day' ? '12:00:00' : '23:59:59'}`);
+          if (!latestMap.has(key) || timestamp > latestMap.get(key).timestamp) {
+            latestMap.set(key, { ...item, timestamp });
+          }
+        });
+
+        const mapped = Array.from(latestMap.values()).map((item, index) => {
           const score = item.Consensus_score;
           let status = '';
           if (score >= 80) status = '심각(80점 이상)';
           else if (score >= 65) status = '주의(65~80점)';
           else if (score >= 50) status = '관심(50~65점)';
           else status = '정상(0~50점)';
+
           return {
             no: index + 1,
             user: item.User,
@@ -42,13 +42,12 @@ function App() {
             status,
           };
         });
+
         setTableData(mapped);
       });
   }, []);
 
-  const filteredTable = tableData.filter(row => {
-    return filter === '전체' || row.status === filter;
-  });
+  const filteredTable = tableData.filter(row => filter === '전체' || row.status === filter);
 
   const statusCounts = {
     '정상(0~50점)': 0,
@@ -56,9 +55,7 @@ function App() {
     '주의(65~80점)': 0,
     '심각(80점 이상)': 0,
   };
-  tableData.forEach(row => {
-    statusCounts[row.status]++;
-  });
+  tableData.forEach(row => statusCounts[row.status]++);
 
   const STATUS_DATA = [
     { name: '정상(0~50점)', value: statusCounts['정상(0~50점)'] },
@@ -68,9 +65,9 @@ function App() {
   ];
   const total = STATUS_DATA.reduce((sum, item) => sum + item.value, 0);
 
-  const filteredUsers = DUMMY_USERS.filter(user =>
-    user.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = tableData
+    .filter(user => filter === '전체' || user.status === filter)
+    .filter(user => user.user.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="dashboard-container">
@@ -88,48 +85,47 @@ function App() {
               <div className="donut-chart">
                 <PieChart width={260} height={260}>
                   <Pie
-                  data={STATUS_DATA}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={110}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                  labelLine={false}
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                    const RADIAN = Math.PI / 180;
-                    const radius = (innerRadius + outerRadius) / 2;
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    return (
-                      <text x={x} y={y} fill="#fff" fontSize="13" fontWeight="bold" textAnchor="middle" dominantBaseline="central">
-                        {`${(percent * 100).toFixed(0)}%`}
-                      </text>
-                    );
-                  }}
-                >
-                  {STATUS_DATA.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index]} />
-                  ))}
-                  <Label
-                    position="center"
-                    content={() => (
-                      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="18" fontWeight="700">
-                        전체
-                        <tspan x="50%" dy="22">{total}개</tspan>
-                      </text>
-                    )}
-                  />
-                </Pie>
-                  </PieChart>
-              
+                    data={STATUS_DATA}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={110}
+                    dataKey="value"
+                    startAngle={90}
+                    endAngle={-270}
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = (innerRadius + outerRadius) / 2;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} fill="#fff" fontSize="13" fontWeight="bold" textAnchor="middle" dominantBaseline="central">
+                          {`${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
+                  >
+                    {STATUS_DATA.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                    ))}
+                    <Label
+                      position="center"
+                      content={() => (
+                        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="18" fontWeight="700">
+                          전체
+                          <tspan x="50%" dy="22">{total}명</tspan>
+                        </text>
+                      )}
+                    />
+                  </Pie>
+                </PieChart>
               </div>
               <ul className="status-legend">
                 {STATUS_DATA.map((entry, index) => (
                   <li key={entry.name}>
                     <span className="legend-dot" style={{ backgroundColor: COLORS[index] }}></span>
-                    {entry.name} <strong>{entry.value}개</strong>
+                    {entry.name} <strong>{entry.value}명</strong>
                   </li>
                 ))}
               </ul>
@@ -158,6 +154,7 @@ function App() {
                     <th>타입</th>
                     <th>점수</th>
                     <th>위험등급</th>
+                    <th>상세</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,6 +166,15 @@ function App() {
                       <td>{row.type}</td>
                       <td>{row.score.toFixed(1)}</td>
                       <td>{row.status}</td>
+                      <td>
+                        <button
+                          className="detail-btn"
+                          onClick={() => navigate(`/user/${row.user}`, { state: row })}
+                          title="상세보기"
+                        >
+                          &gt;
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -185,7 +191,6 @@ function App() {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
-            
             <div className="user-cards-scroll">
               {filteredUsers.map((user, idx) => {
                 const statusClass = user.status.includes('심각') ? 'danger'
@@ -193,20 +198,20 @@ function App() {
                                   : user.status.includes('관심') ? 'caution'
                                   : 'safe';
 
-                const label =
-                  user.status.includes('심각') ? '위험' :
-                  user.status.includes('주의') ? '주의' :
-                  user.status.includes('관심') ? '관심' : '안전';
+                const label = user.status.includes('심각') ? '위험'
+                              : user.status.includes('주의') ? '주의'
+                              : user.status.includes('관심') ? '관심'
+                              : '안전';
 
                 return (
-                  <div key={user.id} className="user-card">
+                  <div key={user.user} className="user-card">
                     <div className="user-card-info">
-                      <span>{`0${idx + 1}. ${user.id}`}</span>
+                      <span>{`${(idx + 1).toString().padStart(2, '0')}. ${user.user}`}</span>
                       <span className={`status-badge ${statusClass}`}>{label}</span>
                     </div>
                     <button
                       className="alert-btn"
-                      onClick={() => navigate(`/user/${user.id}`, { state: user })}
+                      onClick={() => navigate(`/user/${user.user}`, { state: user })}
                     >
                       상세 보기
                     </button>
@@ -214,8 +219,6 @@ function App() {
                 );
               })}
             </div>
-
-
           </section>
         </div>
       </main>
