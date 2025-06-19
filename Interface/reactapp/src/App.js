@@ -1,134 +1,224 @@
 // App.js
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { PieChart, Pie, Cell, Label } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 const DUMMY_USERS = [
-  { id: '121311', name: '서건우' },
-  { id: '203131', name: '김혜수' },
-  { id: '333210', name: '이지우' },
-  { id: '303214', name: '콩코르줄오치르밧' },
-  { id: '404512', name: '박민지' },
-  { id: '505613', name: '최현우' },
-  { id: '606714', name: '정수연' },
-  { id: '707815', name: '강태영' },
-  { id: '808916', name: '윤서연' },
-  { id: '909017', name: '임도현' },
+  { id: '0040071', status: '심각(80점 이상)' },
+  { id: '0040011', status: '주의(65~80점)' },
+  { id: '0040041', status: '관심(50~65점)' },
+  { id: '0040020', status: '정상(0~50점)' },
+  { id: '00300018', status: '심각(80점 이상)' },
+  { id: '0050030', status: '심각(80점 이상)' },
+  { id: '0010004', status: '심각(80점 이상)' }
 ];
 
+const COLORS = ['#005bff', '#5c7cfa', '#fab005', '#fa5252'];
+
 function App() {
-  const [responses, setResponses] = useState({});
-  const [loadingUsers, setLoadingUsers] = useState(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tableData, setTableData] = useState([]);
+  const [filter, setFilter] = useState('전체');
+  const navigate = useNavigate();
 
-  // SSE 구독: 중계 서버로부터 새 알림·응답 수신
   useEffect(() => {
-    const es = new EventSource('http://172.30.1.28:3003/mcs/alert/stream');
-
-    es.onmessage = e => {
-      const data = JSON.parse(e.data);
-      console.log('[Frontend ← SSE]', data);
-
-      if (data.type === 'new_alert') {
-        setLoadingUsers(prev => new Set([...prev, data.user.id]));
-      }
-      else if (data.type === 'status') {
-        setResponses(prev => ({
-          ...prev,
-          [data.userId]: data.status
-        }));
-        setLoadingUsers(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(data.userId);
-          return newSet;
+    fetch('/abnormal_detection.json')
+      .then(res => res.json())
+      .then(data => {
+        const mapped = data.map((item, index) => {
+          const score = item.Consensus_score;
+          let status = '';
+          if (score >= 80) status = '심각(80점 이상)';
+          else if (score >= 65) status = '주의(65~80점)';
+          else if (score >= 50) status = '관심(50~65점)';
+          else status = '정상(0~50점)';
+          return {
+            no: index + 1,
+            user: item.User,
+            date: item.Date,
+            type: item.Type,
+            score,
+            status,
+          };
         });
-      }
-    };
-
-    es.onerror = err => {
-      console.error('SSE error', err);
-      es.close();
-    };
-
-    return () => es.close();
+        setTableData(mapped);
+      });
   }, []);
 
-  // 더미 사용자 클릭 → 중계 서버에 전송
-  const sendAlert = async user => {
-    try {
-      console.log('[Frontend → POST /mcs/alert/send]', user);
-      setLoadingUsers(prev => new Set([...prev, user.id]));
-      
-      await fetch('http://172.30.1.28:3003/mcs/alert/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-      });
-    } catch (err) {
-      console.error(err);
-      setLoadingUsers(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(user.id);
-        return newSet;
-      });
-    }
-  };
+  const filteredTable = tableData.filter(row => {
+    return filter === '전체' || row.status === filter;
+  });
 
-  const getUserStatus = (userId) => {
-    if (loadingUsers.has(userId)) return 'loading';
-    if (responses[userId]) return responses[userId];
-    return 'idle';
+  const statusCounts = {
+    '정상(0~50점)': 0,
+    '관심(50~65점)': 0,
+    '주의(65~80점)': 0,
+    '심각(80점 이상)': 0,
   };
+  tableData.forEach(row => {
+    statusCounts[row.status]++;
+  });
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'loading': return '확인 중...';
-      case 'ok': return '안전';
-      case 'emergency': return '위험';
-      default: return '';
-    }
-  };
+  const STATUS_DATA = [
+    { name: '정상(0~50점)', value: statusCounts['정상(0~50점)'] },
+    { name: '관심(50~65점)', value: statusCounts['관심(50~65점)'] },
+    { name: '주의(65~80점)', value: statusCounts['주의(65~80점)'] },
+    { name: '심각(80점 이상)', value: statusCounts['심각(80점 이상)'] },
+  ];
+  const total = STATUS_DATA.reduce((sum, item) => sum + item.value, 0);
+
+  const filteredUsers = DUMMY_USERS.filter(user =>
+    user.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="app-container">
-      <header className="header">
-        <h1>2단계 사용자 모니터링 시스템</h1>
-      </header>
-
-      <div className="users-list">
-        {DUMMY_USERS.map(user => {
-          const status = getUserStatus(user.id);
-          
-          return (
-            <div key={user.id} className="user-row">
-              <div className="user-info">
-                <span className="user-name">{user.name}</span>
-                <span className="user-id">({user.id})</span>
-                {status !== 'idle' && (
-                  <span className={`status ${status}`}>
-                    {getStatusText(status)}
-                  </span>
-                )}
-              </div>
-              
-              <div className="user-actions">
-                <button 
-                  className="alert-button"
-                  onClick={() => sendAlert(user)}
-                  disabled={status === 'loading'}
+    <div className="dashboard-container">
+      <aside className="sidebar">
+        <h1>안부똑똑서비스</h1>
+        <ul>
+          <li>실시간 상황</li>
+        </ul>
+      </aside>
+      <main className="main-content">
+        <div className="dashboard-grid">
+          <section className="status-summary">
+            <h3>LED 이상탐지 현황</h3>
+            <div className="donut-chart-box">
+              <div className="donut-chart">
+                <PieChart width={260} height={260}>
+                  <Pie
+                  data={STATUS_DATA}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={110}
+                  dataKey="value"
+                  startAngle={90}
+                  endAngle={-270}
+                  labelLine={false}
+                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                    const RADIAN = Math.PI / 180;
+                    const radius = (innerRadius + outerRadius) / 2;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    return (
+                      <text x={x} y={y} fill="#fff" fontSize="13" fontWeight="bold" textAnchor="middle" dominantBaseline="central">
+                        {`${(percent * 100).toFixed(0)}%`}
+                      </text>
+                    );
+                  }}
                 >
-                  {status === 'loading' ? (
-                    <>
-                      <div className="spinner"></div>
-                      확인 중...
-                    </>
-                  ) : (
-                    '알림 전송'
-                  )}
-                </button>
+                  {STATUS_DATA.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                  ))}
+                  <Label
+                    position="center"
+                    content={() => (
+                      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="18" fontWeight="700">
+                        전체
+                        <tspan x="50%" dy="22">{total}개</tspan>
+                      </text>
+                    )}
+                  />
+                </Pie>
+                  </PieChart>
+              
               </div>
+              <ul className="status-legend">
+                {STATUS_DATA.map((entry, index) => (
+                  <li key={entry.name}>
+                    <span className="legend-dot" style={{ backgroundColor: COLORS[index] }}></span>
+                    {entry.name} <strong>{entry.value}개</strong>
+                  </li>
+                ))}
+              </ul>
             </div>
-          );
-        })}
-      </div>
+
+            <div style={{ marginBottom: '1px' }}>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="select-filter"
+              >
+                <option value="전체">전체</option>
+                {STATUS_DATA.map(s => (
+                  <option key={s.name} value={s.name}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="table-scroll">
+              <table className="status-table">
+                <thead>
+                  <tr>
+                    <th>번호</th>
+                    <th>사용자</th>
+                    <th>날짜</th>
+                    <th>타입</th>
+                    <th>점수</th>
+                    <th>위험등급</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTable.map((row) => (
+                    <tr key={row.no}>
+                      <td>{row.no}</td>
+                      <td>{row.user}</td>
+                      <td>{row.date}</td>
+                      <td>{row.type}</td>
+                      <td>{row.score.toFixed(1)}</td>
+                      <td>{row.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="user-card-section">
+            <h3>유저별 관리</h3>
+            <input
+              className="user-search-input"
+              type="text"
+              placeholder="유저번호를 입력하세요."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            
+            <div className="user-cards-scroll">
+              {filteredUsers.map((user, idx) => {
+                const statusClass = user.status.includes('심각') ? 'danger'
+                                  : user.status.includes('주의') ? 'warning'
+                                  : user.status.includes('관심') ? 'caution'
+                                  : 'safe';
+
+                const label =
+                  user.status.includes('심각') ? '위험' :
+                  user.status.includes('주의') ? '주의' :
+                  user.status.includes('관심') ? '관심' : '안전';
+
+                return (
+                  <div key={user.id} className="user-card">
+                    <div className="user-card-info">
+                      <span>{`0${idx + 1}. ${user.id}`}</span>
+                      <span className={`status-badge ${statusClass}`}>{label}</span>
+                    </div>
+                    <button
+                      className="alert-btn"
+                      onClick={() => navigate(`/user/${user.id}`, { state: user })}
+                    >
+                      상세 보기
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+
+          </section>
+        </div>
+      </main>
     </div>
   );
 }
