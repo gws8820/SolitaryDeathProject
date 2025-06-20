@@ -40,18 +40,24 @@ class ModelTrainer:
             'night_bathroom_usage'
         ]
         
-        # 모델 초기화
-        self.models = {
-            'isolation_forest': IsolationForest(
-                contamination=0.1,
-                random_state=42,
-                n_estimators=100
-            ),
-            'one_class_svm': OneClassSVM(
-                nu=0.1,
-                kernel='rbf',
-                gamma='scale'
-            )
+        # 모델 설정 (매번 새로 생성하기 위해 함수로 변경)
+        self.model_configs = {
+            'isolation_forest': {
+                'class': IsolationForest,
+                'params': {
+                    'contamination': 0.1,
+                    'random_state': 42,
+                    'n_estimators': 100
+                }
+            },
+            'one_class_svm': {
+                'class': OneClassSVM,
+                'params': {
+                    'nu': 0.05,
+                    'kernel': 'rbf',
+                    'gamma': 'auto'
+                }
+            }
         }
         
         self.scalers = {}
@@ -143,10 +149,13 @@ class ModelTrainer:
         trained_models = {}
         model_stats = {}
         
-        for model_name, model in self.models.items():
+        for model_name, model_config in self.model_configs.items():
             print(f"\n{model_name.upper()} 훈련 중...")
             
             try:
+                # 모델 새로 생성 (덮어쓰기 방지)
+                model = model_config['class'](**model_config['params'])
+                
                 # Isolation Forest, One-Class SVM
                 model.fit(X_train)
                 
