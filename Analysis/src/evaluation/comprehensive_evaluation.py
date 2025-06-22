@@ -276,12 +276,13 @@ class CombinedEvaluationVisualizer:
         """특정 사용자의 이상 탐지 평가"""
         dataset_features = self.load_processed_data(dataset_name)
         
-        # abnormal_hour 기준으로 시작 모델 결정 (normal인 경우 임의 시작점)
+        # 시작 모델 결정
         if is_normal:
-            # 정상 데이터는 임의 시점부터 시작 (오전 6시로 고정)
-            start_model = 'night'
-            start_time = 6
+            # 정상 데이터: 0시부터 시작 (언제든 탐지되면 오탐지)
+            start_model = 'night'  # 0시는 night 모델
+            start_time = 0
         else:
+            # 비정상 데이터: abnormal_hour 기준으로 시작 모델 결정
             if abnormal_hour < 6:  # 0~5시: night 모델부터
                 start_model = 'night'
                 start_time = 6  # 다음 오전 6시부터 시작
@@ -330,9 +331,10 @@ class CombinedEvaluationVisualizer:
                             detected = True
                             # 탐지 시간 계산
                             if is_normal:
-                                detection_time = check_num * 6  # 정상 데이터는 시작점부터 계산
+                                # 정상 데이터: 0시부터 현재 검사 시점까지의 시간
+                                detection_time = current_time
                             else:
-                                # abnormal_hour로부터 얼마나 지났는지
+                                # 비정상 데이터: abnormal_hour로부터 얼마나 지났는지
                                 if current_time >= 24:
                                     actual_time = current_time - 24
                                 else:
@@ -373,16 +375,17 @@ class CombinedEvaluationVisualizer:
         print(f"데이터셋 평가 중: {dataset_name}")
         
         if is_normal:
-            # 정상 데이터는 abnormal_hour 없이 사용자 목록만 가져오기
+            # 정상 데이터: 사용자 목록만 가져오고 abnormal_hour는 0부터 시작 (언제든 탐지되면 오탐지)
             dataset_features = self.load_processed_data(dataset_name)
             if 'day' in dataset_features and 'inactive_total' in dataset_features['day']:
                 users = dataset_features['day']['inactive_total']['User'].unique()
-                abnormal_hours_data = pd.DataFrame({'User': users, 'abnormal_hour': [6] * len(users)})  # 임의값
+                # 정상 데이터에서는 abnormal_hour 개념이 없음. 0부터 시작해서 언제든 탐지되면 오탐지
+                abnormal_hours_data = pd.DataFrame({'User': users, 'abnormal_hour': [0] * len(users)})
             else:
                 print(f"정상 데이터 로드 실패: {dataset_name}")
                 return {}
         else:
-            # abnormal_hour 데이터 로드
+            # 비정상 데이터: abnormal_hour 데이터 로드
             abnormal_hours_data = self.load_abnormal_hours(dataset_name)
             if abnormal_hours_data is None:
                 print(f"abnormal_hour 데이터 없음: {dataset_name}")
@@ -392,7 +395,11 @@ class CombinedEvaluationVisualizer:
         all_results = {}
         for _, row in abnormal_hours_data.iterrows():
             user_id = row['User']
-            abnormal_hour = row['abnormal_hour'] if not is_normal else 0
+            if is_normal:
+                # 정상 데이터: abnormal_hour는 의미없음, 0으로 고정
+                abnormal_hour = 0
+            else:
+                abnormal_hour = row['abnormal_hour']
             
             user_results = self.evaluate_user_detection(dataset_name, user_id, abnormal_hour, is_normal)
             all_results[user_id] = user_results

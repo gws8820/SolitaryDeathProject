@@ -9,7 +9,7 @@ class AbnormalHourExtractor:
         # Create output directory if not exists
         os.makedirs(output_path, exist_ok=True)
         
-        # Abnormal datasets to process
+        # Abnormal datasets to process (정상 데이터는 제외)
         self.abnormal_datasets = [
             'rapid_abnormal_test_dataset.csv',
             'immediate_abnormal_test_dataset.csv', 
@@ -21,7 +21,7 @@ class AbnormalHourExtractor:
         file_path = os.path.join(self.raw_data_path, dataset_filename)
         
         if not os.path.exists(file_path):
-            print(f"❌ 파일이 존재하지 않습니다: {dataset_filename}")
+            print(f"파일이 존재하지 않습니다: {dataset_filename}")
             return None
         
         # Load dataset
@@ -29,10 +29,10 @@ class AbnormalHourExtractor:
         
         # Check if abnormal_hour column exists
         if 'abnormal_hour' not in df.columns:
-            print(f"❌ abnormal_hour 컬럼이 없습니다: {dataset_filename}")
+            print(f"abnormal_hour 컬럼이 없습니다: {dataset_filename}")
             return None
         
-        print(f"📁 처리 중: {dataset_filename}")
+        print(f"처리 중: {dataset_filename}")
         print(f"  - 총 행 수: {len(df)}")
         print(f"  - 사용자 수: {df['User'].nunique()}")
         
@@ -63,11 +63,11 @@ class AbnormalHourExtractor:
                 })
         
         if inconsistent_users:
-            print(f"  ⚠️  일관성 없는 사용자들 ({len(inconsistent_users)}명):")
+            print(f"  일관성 없는 사용자들 ({len(inconsistent_users)}명):")
             for user_info in inconsistent_users[:3]:  # Show first 3
                 print(f"    User {user_info['user']}: {user_info['abnormal_hours']}")
         else:
-            print(f"  ✅ 모든 사용자의 abnormal_hour가 일관성 있음")
+            print(f"  모든 사용자의 abnormal_hour가 일관성 있음")
         
         return user_abnormal_hours
     
@@ -82,7 +82,7 @@ class AbnormalHourExtractor:
         
         # Save to CSV
         user_abnormal_hours.to_csv(output_path, index=False)
-        print(f"  💾 저장 완료: {output_path}")
+        print(f"  저장 완료: {output_path}")
     
     def analyze_abnormal_hour_patterns(self):
         """Analyze patterns in abnormal hours across datasets"""
@@ -100,14 +100,14 @@ class AbnormalHourExtractor:
                 
                 # Analyze distribution
                 hour_counts = user_hours['abnormal_hour'].value_counts().sort_index()
-                print(f"\n📊 {dataset_name} 비정상 시간 분포:")
+                print(f"\n{dataset_name} 비정상 시간 분포:")
                 for hour, count in hour_counts.items():
                     percentage = count / len(user_hours) * 100
                     print(f"  {hour:2d}시: {count:3d}명 ({percentage:5.1f}%)")
         
         # Compare patterns across datasets
         if len(all_data) > 1:
-            print(f"\n📊 데이터셋별 비정상 시간 비교:")
+            print(f"\n데이터셋별 비정상 시간 비교:")
             all_hours = set()
             for data in all_data.values():
                 all_hours.update(data['abnormal_hour'].unique())
@@ -128,7 +128,11 @@ class AbnormalHourExtractor:
         return all_data
     
     def extract_all_abnormal_hours(self):
-        """Extract abnormal hours from all abnormal datasets"""
+        """Extract abnormal hours from all abnormal datasets
+        
+        Note: 이 함수는 비정상 데이터에서만 사용됩니다.
+        정상 데이터에는 abnormal_hour 개념이 없으므로 별도 처리가 필요합니다.
+        """
         print("="*60)
         print("비정상 데이터셋 abnormal_hour 추출")
         print("="*60)
@@ -144,8 +148,8 @@ class AbnormalHourExtractor:
         print(f"\n{'='*60}")
         print("추출 완료!")
         print(f"{'='*60}")
-        print(f"📁 출력 폴더: {self.output_path}")
-        print(f"📄 생성된 파일 수: {len(self.abnormal_datasets)}")
+        print(f"출력 폴더: {self.output_path}")
+        print(f"생성된 파일 수: {len(self.abnormal_datasets)}")
         
         return all_data
 
