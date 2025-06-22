@@ -69,7 +69,7 @@ SolitaryDeathProject/
 │   ├── charts/          # 시각화 자료 (8개 차트)
 │   └── reports/         # 분석 보고서 (8개 보고서)
 ├── Interface/            # 사용자 인터페이스
-│   ├── mcsBot/          # Discord 봇
+│   ├── mcsBot/          # 카카오톡 봇
 │   ├── reactapp/        # React 웹앱
 │   └── server/          # Node.js 서버
 └── venv/                # Python 가상환경
@@ -78,14 +78,16 @@ SolitaryDeathProject/
 ### 데이터베이스 구조
 
 #### `abnormal_detection` 테이블
-- **Primary Key**: `id` (AUTO_INCREMENT)
-- **User**: 사용자 식별자
-- **timestamp**: 탐지 시각 (DATETIME)
-- **day_if_score**: 주간 Isolation Forest 점수
-- **day_svm_score**: 주간 One-Class SVM 점수  
-- **night_if_score**: 야간 Isolation Forest 점수
-- **night_svm_score**: 야간 One-Class SVM 점수
-- **consensus**: 합의 결과 (0: 정상, 1: 이상)
+- **Primary Key**: (User, Date, Type)
+- **User**: 사용자 식별자 (VARCHAR(20))
+- **Date**: 분석 날짜 (DATE)
+- **Type**: 모델 타입 - 'day' 또는 'night' (VARCHAR(10))
+- **OCSVM_prediction**: One-Class SVM 이상치 예측 결과 (BOOLEAN)
+- **OCSVM_score**: One-Class SVM 이상치 점수 (1-100점, 50점 이상 이상)
+- **Isforest_prediction**: Isolation Forest 이상치 예측 결과 (BOOLEAN)
+- **Isforest_score**: Isolation Forest 이상치 점수 (1-100점, 50점 이상 이상)
+- **Consensus_prediction**: 합의 이상치 결과
+- **Consensus_score**: 합의 점수 (두 모델 점수의 평균)
 
 ## 5단계 개발 진행 현황
 
@@ -134,23 +136,33 @@ SolitaryDeathProject/
 - **12시간 내**: 기존 0.0% vs ML 100.0% (+100.0%p)
 - **24시간 내**: 기존 30.6% vs ML 100.0% (+69.4%p)
 
+![시간대별 탐지율](Analysis/charts/detection_performance/time_based_detection_rate.png)
+
 #### 데이터셋별 72시간 감지율 개선
 - **즉시 이상**: 기존 91.7% vs ML 100.0% (+8.3%p)
 - **빠른 이상**: 기존 8.3% vs ML 100.0% (+91.7%p)
 - **점진적 이상**: 기존 0.0% vs ML 100.0% (+100.0%p)
 
-### 시각화 자료
+![72시간 내 전체 탐지율](Analysis/charts/detection_performance/72h_detection_rate_all.png)
 
-프로젝트에서 생성된 **8개 성능 분석 차트**:
+![데이터셋별 72시간 탐지율](Analysis/charts/detection_performance/72h_detection_rate_by_dataset.png)
 
-1. **72시간 내 전체 탐지율**: 모델별 전체 성능 비교
-2. **데이터셋별 72시간 탐지율**: 시나리오별 성능 분석  
-3. **전체 평균 탐지 시간**: 모델별 응답 속도 비교
-4. **데이터셋별 평균 탐지 시간**: 시나리오별 탐지 시간
-5. **전체 오탐지율**: 모델별 정확도 분석
-6. **데이터셋별 오탐지율**: 시나리오별 정확도
-7. **시간대별 탐지율**: 3h/6h/12h/24h 구간별 성능
-8. **실제 운영 결과**: 사용자별 이상 탐지 현황
+### 탐지 시간 분석
+
+#### 평균 탐지 시간 비교
+기존 방법 대비 ML 모델들의 현저한 탐지 시간 단축:
+
+![전체 평균 탐지 시간](Analysis/charts/detection_performance/avg_detection_time_all.png)
+
+![데이터셋별 평균 탐지 시간](Analysis/charts/detection_performance/avg_detection_time_by_dataset.png)
+
+### 오탐지율 분석
+
+모든 모델에서 완벽한 0.0% 오탐지율 달성:
+
+![전체 오탐지율](Analysis/charts/detection_performance/false_positive_all.png)
+
+![데이터셋별 오탐지율](Analysis/charts/detection_performance/false_positive_by_dataset.png)
 
 ## 핵심 개선사항
 
@@ -195,6 +207,10 @@ SolitaryDeathProject/
 - **합의 이상치**: 51건 (6.9%)
 - **이상 패턴 사용자**: 28명 (25.0%)
 
+![이상 탐지 분포](Analysis/charts/detection_real/detection_distribution.png)
+
+![모델별 성능 비교](Analysis/charts/detection_real/model_comparison.png)
+
 #### 고위험 사용자 식별 (50% 이상 감지율)
 1. **User 64**: 66.7% (4/6일)
 2. **User 73**: 66.7% (4/6일)  
@@ -207,27 +223,16 @@ SolitaryDeathProject/
 9. **User 80**: 50.0% (3/6일)
 10. **User 102**: 50.0% (3/6일)
 
+![사용자별 탐지 횟수](Analysis/charts/detection_real/user_detection_count.png)
+
+![사용자별 탐지 비율](Analysis/charts/detection_real/user_detection_ratio.png)
+
+![전체 탐지 비율](Analysis/charts/detection_real/total_detection_ratio.png)
+
 #### 시스템 성능
 - **처리 시간**: 전체 파이프라인 2.92초
 - **모델 훈련**: 0.59초 (Day + Night)
 - **메모리 효율성**: 경량화된 모델 구조
-
-## 향후 계획
-
-### 단기 계획 (1-3개월)
-- **실시간 알림 시스템**: 이상 탐지 시 즉시 알림
-- **모바일 앱**: 관리자용 모니터링 앱
-- **성능 최적화**: 더 빠른 응답 시간
-
-### 중기 계획 (3-6개월)  
-- **센서 확장**: 온도, 습도, 동작 감지 센서 추가
-- **예측 모델**: 고독사 위험도 예측 기능
-- **자동 신고**: 응급 서비스 자동 연결
-
-### 장기 계획 (6-12개월)
-- **전국 확대**: 다른 지역으로 시스템 확산  
-- **AI 고도화**: 딥러닝 기반 패턴 인식
-- **통합 플랫폼**: 종합 고령자 케어 시스템
 
 ## 문서 및 보고서
 
